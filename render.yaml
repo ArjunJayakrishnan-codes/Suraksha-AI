@@ -1,5 +1,21 @@
 services:
   - type: web
+    name: Gig-Guardian
+    env: docker
+    plan: free
+    dockerfilePath: Dockerfile
+    # Render will build the Dockerfile at repo root and run the resulting image.
+    # Configure environment variables (e.g. MONGODB_URI) in the Render dashboard or
+    # supply them via the Render dashboard / CLI after creating the service.
+    envVars:
+      - key: MONGODB_URI
+        value: ""
+      - key: MONGODB_DB
+        value: "secure_gig_guardian"
+      - key: MONGODB_COLLECTION
+        value: "insurance_policies"
+services:
+  - type: web
     name: secure-gig-guardian
     env: docker
     repo: https://github.com/TIRTHANATH20/secure-gig-guardian

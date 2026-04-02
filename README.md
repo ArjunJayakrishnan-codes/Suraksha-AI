@@ -82,6 +82,28 @@ The FastAPI server runs on `http://localhost:8000` by default.
 
 Environment variables for backend can be set in the terminal or a `.env` file.
 
+### Deploying to Render
+
+This repo includes a `Dockerfile` that builds the frontend and runs the FastAPI backend. To deploy on Render you can use the provided `render.yaml` manifest which will build the Docker image and run the service.
+
+Steps:
+
+1. Push your repository to GitHub/GitLab.
+2. In Render, create a new service and select "Infrastructure as Code" and connect your repo — Render will use `render.yaml`.
+3. Set the environment variables in the Render dashboard (Environment → Environment Variables):
+
+	- `MONGODB_URI` — e.g. `mongodb://username:password@host:27017` (leave blank to use the in-memory fallback)
+	- `MONGODB_DB` — `secure_gig_guardian`
+	- `MONGODB_COLLECTION` — `insurance_policies`
+
+4. Optionally set `PORT` (the Docker container respects the `PORT` env var). Render sets this automatically.
+
+Notes:
+
+- If `MONGODB_URI` is not set or the database is unreachable, the app falls back to an in-memory policy store (data will not persist across restarts). Set `MONGODB_URI` to enable persistence.
+- The Dockerfile already builds the frontend into `/app/dist` and the backend serves that folder when present.
+
+
 ## Quick Start Guide
 
 ### Start Development Servers

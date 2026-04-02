@@ -5,6 +5,112 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError, PyMongoError
+import threading
+
+
+# Lightweight in-memory collection fallback when MongoDB is not available.
+class _InMemoryQuery:
+    def __init__(self, docs):
+        self._docs = list(docs)
+
+    def sort(self, key, direction):
+        reverse = bool(direction == -1)
+        try:
+            self._docs.sort(key=lambda d: d.get(key), reverse=reverse)
+        except Exception:
+            pass
+        return self
+
+    def __iter__(self):
+        return iter(self._docs)
+
+
+class _InMemoryCollection:
+    def __init__(self):
+        self._docs = []
+        self._lock = threading.Lock()
+
+    def create_index(self, *args, **kwargs):
+        return None
+
+    def find(self):
+        return _InMemoryQuery(self._docs)
+
+    def find_one(self, filt):
+        if not filt:
+            return None
+        # support lookup by _id or policy_number
+        if "_id" in filt:
+            target = filt["_id"]
+            for d in self._docs:
+                if d.get("_id") == target:
+                    return d
+        if "policy_number" in filt:
+            for d in self._docs:
+                if d.get("policy_number") == filt["policy_number"]:
+                    return d
+        return None
+
+    def insert_one(self, document):
+        with self._lock:
+            doc = dict(document)
+            if "_id" not in doc:
+                doc["_id"] = ObjectId()
+            # enforce unique policy_number if provided
+            pn = doc.get("policy_number")
+            if pn:
+                for d in self._docs:
+                    if d.get("policy_number") == pn:
+                        raise DuplicateKeyError("duplicate key error")
+            self._docs.append(doc)
+            class _Res: pass
+            res = _Res()
+            res.inserted_id = doc["_id"]
+            return res
+
+    def update_one(self, filt, update):
+        with self._lock:
+            target = None
+            if "_id" in filt:
+                tid = filt["_id"]
+                for d in self._docs:
+                    if d.get("_id") == tid:
+                        target = d
+                        break
+            if not target:
+                class _Res: pass
+                r = _Res()
+                r.modified_count = 0
+                return r
+            # apply $set
+            sets = update.get("$set", {})
+            for k, v in sets.items():
+                target[k] = v
+            class _Res: pass
+            r = _Res()
+            r.modified_count = 1
+            return r
+
+    def delete_one(self, filt):
+        with self._lock:
+            target = None
+            if "_id" in filt:
+                tid = filt["_id"]
+                for i, d in enumerate(self._docs):
+                    if d.get("_id") == tid:
+                        target = i
+                        break
+            if target is None:
+                class _Res: pass
+                r = _Res()
+                r.deleted_count = 0
+                return r
+            self._docs.pop(target)
+            class _Res: pass
+            r = _Res()
+            r.deleted_count = 1
+            return r
+
 
 MONGO_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 MONGO_DB = os.getenv("MONGODB_DB", "secure_gig_guardian")
@@ -21,7 +127,9 @@ try:
 except PyMongoError as exc:
     print(f"MongoDB initialization error: {exc}")
     client = None
-    collection = None
+    # fall back to in-memory collection so the app remains usable without MongoDB
+    collection = _InMemoryCollection()
+    print("Using in-memory policy store as fallback.")
 
 
 def _serialize_policy(doc: Dict[str, Any]) -> Dict[str, Any]:
