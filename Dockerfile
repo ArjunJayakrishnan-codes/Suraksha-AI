@@ -5,7 +5,7 @@ FROM node:20-alpine AS frontend-build
 WORKDIR /app
 # Copy the whole repo so build tools and configs (e.g. tsconfig.app.json) are available
 COPY . .
-RUN npm ci --silent
+RUN npm ci --silent --ignore-scripts
 RUN npm run build
 
 ### Run Python app
