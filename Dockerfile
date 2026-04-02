@@ -3,10 +3,9 @@
 ### Build frontend
 FROM node:20-alpine AS frontend-build
 WORKDIR /app
-COPY package.json package-lock.json* ./
-COPY index.html tsconfig.json vite.config.ts ./
-COPY src ./src
-RUN npm install --silent
+# Copy the whole repo so build tools and configs (e.g. tsconfig.app.json) are available
+COPY . .
+RUN npm ci --silent
 RUN npm run build
 
 ### Run Python app
