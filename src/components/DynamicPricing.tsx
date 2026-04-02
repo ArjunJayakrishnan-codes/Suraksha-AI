@@ -87,7 +87,8 @@ const DynamicPricing = ({ onRiskUpdate }: DynamicPricingProps) => {
           }, 5000);
 
           try {
-            const response = await fetch("http://localhost:8000/predict", {
+            const API_BASE = (import.meta.env && import.meta.env.VITE_API_URL) || "/api";
+            const response = await fetch(`${API_BASE}/predict`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
