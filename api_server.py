@@ -145,6 +145,12 @@ def startup_event():
         raise
 
 
+@app.get("/health")
+def health_check():
+    """Simple health check for readiness probes."""
+    return {"status": "ok"}
+
+
 @app.post("/api/predict")
 def predict(req: PredictRequest):
     try:
