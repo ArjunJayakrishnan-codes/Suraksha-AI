@@ -21,9 +21,7 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# Serve frontend if built into `dist/`
-if os.path.isdir("dist"):
-    app.mount("/", StaticFiles(directory="dist", html=True), name="static")
+# Note: Static files will be mounted after API routes to avoid intercepting POSTs to /api
 
 
 class PredictRequest(BaseModel):
@@ -99,3 +97,8 @@ def predict(req: PredictRequest):
         print(f"Error in predict: {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Serve frontend static files after API is defined so API routes aren't shadowed.
+if os.path.isdir("dist"):
+    app.mount("/", StaticFiles(directory="dist", html=True), name="static")
