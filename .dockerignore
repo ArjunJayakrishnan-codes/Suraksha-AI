@@ -1,0 +1,16 @@
+__pycache__
+*.pyc
+venv/
+.venv/
+node_modules/
+dist/
+*.log
+*.sqlite3
+.pytest_cache/
+env/
+env.bak/
+*.egg-info
+build
+tmp
+*.tar.gz
+*.whl
