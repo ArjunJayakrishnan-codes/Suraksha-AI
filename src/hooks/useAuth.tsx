@@ -60,7 +60,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signUp(email: string, password: string, fullName: string) {
     const supabase = getSupabase();
     if (!supabase) {
-      throw new Error("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY (or VITE_SUPABASE_ANON_KEY).");
+      const msg = "Supabase is not configured. Check console logs ([Bootstrap] and [Supabase]) to see what config is missing. Ensure SUPABASE_URL and SUPABASE_ANON_KEY are set in Render environment variables.";
+      console.error(msg);
+      throw new Error(msg);
     }
     const { error } = await supabase.auth.signUp({
       email,
@@ -73,7 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signIn(email: string, password: string) {
     const supabase = getSupabase();
     if (!supabase) {
-      throw new Error("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY (or VITE_SUPABASE_ANON_KEY).");
+      const msg = "Supabase is not configured. Check console logs ([Bootstrap] and [Supabase]) to see what config is missing. Ensure SUPABASE_URL and SUPABASE_ANON_KEY are set in Render environment variables.";
+      console.error(msg);
+      throw new Error(msg);
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;

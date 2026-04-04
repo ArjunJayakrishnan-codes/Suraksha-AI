@@ -11,7 +11,19 @@ function getSupabaseClient() {
     window.__APP_CONFIG__?.supabasePublishableKey ||
     import.meta.env.VITE_SUPABASE_ANON_KEY
 
+  console.log("[Supabase] Initializing client:", {
+    urlSource: SUPABASE_URL ? (import.meta.env.VITE_SUPABASE_URL ? "build-time" : "runtime") : "missing",
+    keySource: SUPABASE_PUBLISHABLE_KEY 
+      ? (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ? "PUBLISHABLE_KEY" : import.meta.env.VITE_SUPABASE_ANON_KEY ? "ANON_KEY" : "runtime")
+      : "missing",
+  });
+
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    console.error("[Supabase] Configuration incomplete:", {
+      url: SUPABASE_URL ? "present" : "MISSING",
+      key: SUPABASE_PUBLISHABLE_KEY ? "present" : "MISSING",
+      runtimeConfig: window.__APP_CONFIG__ || "not set",
+    });
     return null
   }
 
