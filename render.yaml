@@ -17,8 +17,8 @@ services:
       - key: MONGODB_CLAIMS_COLLECTION
         value: "claims"
       - key: SUPABASE_URL
-        value: ""
+        value: "https://wlapbbvommqeuvbkojzh.supabase.co"
       - key: SUPABASE_ANON_KEY
-        value: ""
+        value: "sb_publishable_-L2Az9pqH2iUrATyGMIEYQ_afk_fwkS"
       - key: VITE_SUPABASE_ANON_KEY
-        value: ""
+        value: "sb_publishable_-L2Az9pqH2iUrATyGMIEYQ_afk_fwkS"
