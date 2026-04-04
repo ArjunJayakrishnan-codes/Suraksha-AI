@@ -324,6 +324,55 @@ def public_config(response: Response):
     }
 
 
+@app.get("/api/debug-env")
+def debug_env(response: Response):
+    """Diagnostic endpoint to check environment variable configuration."""
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    
+    # Check all Supabase-related env vars
+    env_checks = {
+        "SUPABASE_URL": {
+            "value": os.getenv("SUPABASE_URL"),
+            "set": "SUPABASE_URL" in os.environ,
+            "empty": not os.getenv("SUPABASE_URL"),
+        },
+        "VITE_SUPABASE_URL": {
+            "value": os.getenv("VITE_SUPABASE_URL"),
+            "set": "VITE_SUPABASE_URL" in os.environ,
+            "empty": not os.getenv("VITE_SUPABASE_URL"),
+        },
+        "SUPABASE_ANON_KEY": {
+            "value": os.getenv("SUPABASE_ANON_KEY"),
+            "set": "SUPABASE_ANON_KEY" in os.environ,
+            "empty": not os.getenv("SUPABASE_ANON_KEY"),
+        },
+        "SUPABASE_PUBLISHABLE_KEY": {
+            "value": os.getenv("SUPABASE_PUBLISHABLE_KEY"),
+            "set": "SUPABASE_PUBLISHABLE_KEY" in os.environ,
+            "empty": not os.getenv("SUPABASE_PUBLISHABLE_KEY"),
+        },
+        "VITE_SUPABASE_PUBLISHABLE_KEY": {
+            "value": os.getenv("VITE_SUPABASE_PUBLISHABLE_KEY"),
+            "set": "VITE_SUPABASE_PUBLISHABLE_KEY" in os.environ,
+            "empty": not os.getenv("VITE_SUPABASE_PUBLISHABLE_KEY"),
+        },
+        "VITE_SUPABASE_ANON_KEY": {
+            "value": os.getenv("VITE_SUPABASE_ANON_KEY"),
+            "set": "VITE_SUPABASE_ANON_KEY" in os.environ,
+            "empty": not os.getenv("VITE_SUPABASE_ANON_KEY"),
+        },
+    }
+    
+    return {
+        "resolved_url": SUPABASE_URL,
+        "resolved_key": SUPABASE_ANON_KEY,
+        "url_set": bool(SUPABASE_URL),
+        "key_set": bool(SUPABASE_ANON_KEY),
+        "environment_variables": env_checks,
+        "all_env_keys": sorted([k for k in os.environ.keys() if "SUPABASE" in k or "VITE" in k]),
+    }
+
+
 @app.post("/api/predict")
 def predict(req: PredictRequest):
     try:
