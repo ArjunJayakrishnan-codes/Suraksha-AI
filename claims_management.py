@@ -150,6 +150,7 @@ def _serialize_claim(doc: Dict[str, Any]) -> Dict[str, Any]:
         return {}
     return {
         "id": str(doc.get("_id")),
+        "owner_id": doc.get("owner_id", ""),
         "policy_id": str(doc.get("policy_id", "")),
         "claim_number": doc.get("claim_number", ""),
         "title": doc.get("title", ""),
@@ -234,3 +235,72 @@ def delete_claim(claim_id: str, owner_id: str) -> bool:
     except Exception as exc:
         raise ValueError(f"Invalid claim id: {claim_id}") from exc
     return result.deleted_count > 0
+
+
+# ============================================================================
+# Admin-only functions to manage claims across all users
+# ============================================================================
+
+def get_all_claims() -> List[Dict[str, Any]]:
+    """Get ALL claims from all users (admin function - no owner_id filter)"""
+    coll = _require_collection()
+    return [_serialize_claim(doc) for doc in coll.find({}).sort("created_at", -1)]
+
+
+def get_claim_admin(claim_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a single claim by ID without requiring ownership match.
+    Used by admin endpoints for claim review and approval.
+    """
+    coll = _require_collection()
+    try:
+        doc = coll.find_one({"_id": ObjectId(claim_id)})
+    except Exception as exc:
+        raise ValueError(f"Invalid claim id: {claim_id}") from exc
+    return _serialize_claim(doc) if doc else None
+
+
+def update_claim_admin(claim_id: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Update a claim without requiring ownership check.
+    Used by admin endpoints for approval/rejection workflow.
+    Returns updated claim data.
+    """
+    coll = _require_collection()
+    update_fields = {}
+    
+    # Allow admins to update specific fields
+    for field in ["status", "admin_notes"]:
+        if field in payload:
+            update_fields[field] = str(payload[field]).strip()
+    
+    # Also allow updating description and title if needed
+    for field in ["policy_id", "claim_number", "title", "description"]:
+        if field in payload:
+            update_fields[field] = str(payload[field]).strip()
+    
+    if "claim_amount" in payload:
+        update_fields["claim_amount"] = float(payload["claim_amount"])
+
+    if not update_fields:
+        return get_claim_admin(claim_id)
+
+    update_fields["updated_at"] = datetime.utcnow()
+
+    try:
+        coll.update_one({"_id": ObjectId(claim_id)}, {"$set": update_fields})
+        return get_claim_admin(claim_id)
+    except Exception as exc:
+        raise ValueError(f"Invalid claim id: {claim_id}") from exc
+
+
+def get_claims_by_status(status: str) -> List[Dict[str, Any]]:
+    """Get all claims with a specific status (admin function)"""
+    coll = _require_collection()
+    return [_serialize_claim(doc) for doc in coll.find({"status": status}).sort("created_at", -1)]
+
+
+def get_claims_by_user(user_id: str) -> List[Dict[str, Any]]:
+    """Get all claims for a specific user (admin function)"""
+    coll = _require_collection()
+    return [_serialize_claim(doc) for doc in coll.find({"owner_id": user_id}).sort("created_at", -1)]

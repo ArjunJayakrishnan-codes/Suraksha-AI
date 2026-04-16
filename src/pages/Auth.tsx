@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -13,22 +13,30 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [selectedRole, setSelectedRole] = useState<"worker" | "admin">("worker");
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user, role, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && user && role) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, role, authLoading, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
       if (isSignUp) {
-        await signUp(email, password, fullName);
-        toast.success("Account created! Check your email to confirm.");
+        await signUp(email, password, fullName, selectedRole);
+        toast.success("Account created! Redirecting to dashboard...");
       } else {
-        await signIn(email, password);
+        await signIn(email, password, selectedRole);
         toast.success("Welcome back!");
-        navigate("/");
       }
+      navigate("/dashboard");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Authentication failed");
     } finally {
@@ -92,6 +100,40 @@ export default function Auth() {
                 <Label htmlFor="password">Password</Label>
                 <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} placeholder="********" />
               </div>
+              
+              {/* Role Selection */}
+              <div className="space-y-2 border-t pt-4">
+                <Label>I am a:</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="radio" 
+                      id="worker" 
+                      value="worker" 
+                      checked={selectedRole === "worker"}
+                      onChange={(e) => setSelectedRole(e.target.value as "worker" | "admin")}
+                      className="cursor-pointer"
+                    />
+                    <Label htmlFor="worker" className="cursor-pointer font-normal">
+                      Worker - Gig worker seeking income protection
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="radio" 
+                      id="admin" 
+                      value="admin" 
+                      checked={selectedRole === "admin"}
+                      onChange={(e) => setSelectedRole(e.target.value as "worker" | "admin")}
+                      className="cursor-pointer"
+                    />
+                    <Label htmlFor="admin" className="cursor-pointer font-normal">
+                      Admin / Insurer - Managing claims & fraud detection
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Please wait..." : isSignUp ? "Create Account" : "Sign In"}
               </Button>

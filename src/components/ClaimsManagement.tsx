@@ -1,9 +1,11 @@
 import { FormEvent, useEffect, useState } from "react";
-import { AlertCircle, FileText, Trash2 } from "lucide-react";
+import { AlertCircle, FileText, Trash2, AlertTriangle, CheckCircle2, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -13,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { getSupabase } from "@/integrations/supabase/client";
+import FraudDetectionAlert, { PayoutBannerEnhanced } from "@/components/FraudDetectionAlert";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Policy {
@@ -32,11 +35,34 @@ interface Claim {
   admin_notes?: string;
 }
 
+interface FraudAnalysis {
+  is_fraudulent: boolean;
+  risk_score: number;
+  flags: string[];
+  reason: string;
+  recommendation: string;
+}
+
+interface PayoutRecord {
+  payout_id: string;
+  status: string;
+  amount: number;
+  gateway: string;
+  transaction_details: Record<string, any>;
+  created_at: string;
+}
+
 const claimStatusStyles: Record<string, string> = {
   pending: "text-warning border-warning/20",
   under_review: "text-info border-info/20",
   approved: "text-success border-success/20",
   rejected: "text-destructive border-destructive/20",
+  paid_out: "text-green-600 border-green-600/20 bg-green-50",
+};
+
+const formatClaimStatusLabel = (status: string) => {
+  if (status === "paid_out") return "Already Done";
+  return status.replace(/_/g, " ");
 };
 
 const ClaimsManagement = () => {
@@ -45,6 +71,8 @@ const ClaimsManagement = () => {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fraudAnalyses, setFraudAnalyses] = useState<Record<string, FraudAnalysis>>({});
+  const [pendingPayouts, setPendingPayouts] = useState<Record<string, PayoutRecord>>({});
   const [form, setForm] = useState({
     policy_id: "",
     claim_number: "",
@@ -56,8 +84,14 @@ const ClaimsManagement = () => {
   const authHeaders = async (includeJson = false) => {
     const headers: Record<string, string> = {};
     if (includeJson) headers["Content-Type"] = "application/json";
+    
+    // In development, use mock token for API calls
+    if (!getSupabase()) {
+      headers.Authorization = "Bearer mock-dev-token";
+      return headers;
+    }
+    
     const supabase = getSupabase();
-    if (!supabase) return headers;
     const { data } = await supabase.auth.getSession();
     const token = data?.session?.access_token;
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -69,6 +103,55 @@ const ClaimsManagement = () => {
     if (!body) return response.statusText || "Unknown error";
     if (typeof body.detail === "string") return body.detail;
     return JSON.stringify(body.detail || body);
+  };
+
+  // Fraud analysis is handled by `FraudDetectionAlert` component per-claim.
+
+  const processPayout = async (claim: Claim) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/payouts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await authHeaders()),
+        },
+        body: JSON.stringify({
+          claim_id: claim.id,
+          amount: claim.claim_amount,
+          recipient_identifier: "worker@example.upi",
+          gateway: "upi",
+        }),
+      });
+
+      if (!response.ok) throw new Error(await parseError(response));
+
+      const payout = await response.json();
+      setPendingPayouts((prev) => ({ ...prev, [claim.id]: payout }));
+      await updateClaimStatus(claim.id, "paid_out");
+    } catch (err) {
+      setError((err as Error).message || "Failed to process payout.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateClaimStatus = async (claimId: string, status: string) => {
+    try {
+      const response = await fetch(`/api/claims/${claimId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await authHeaders(true)),
+        },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) throw new Error(await parseError(response));
+      await loadAll();
+    } catch (err) {
+      console.error("Failed to update claim status:", err);
+    }
   };
 
   const loadAll = async (preferredPolicyId?: string | null) => {
@@ -86,6 +169,9 @@ const ClaimsManagement = () => {
       const claimData = await claimRes.json();
       setPolicies(Array.isArray(policyData) ? policyData : []);
       setClaims(Array.isArray(claimData) ? claimData : []);
+      
+      // FraudAnalysis is handled inline by `FraudDetectionAlert` component.
+
       setForm((prev) => {
         const availablePolicyIds = new Set((Array.isArray(policyData) ? policyData : []).map((p: Policy) => p.id));
         const nextPolicyId =
@@ -103,7 +189,6 @@ const ClaimsManagement = () => {
   };
 
   useEffect(() => {
-    // Wait for Supabase session to be resolved before first API call.
     if (authLoading) return;
     if (!user) {
       setPolicies([]);
@@ -179,25 +264,31 @@ const ClaimsManagement = () => {
   };
 
   return (
-    <div className="safety-card premium-interactive p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <AlertCircle className="w-4 h-4 text-primary" />
-        <span className="data-label">Claims Management</span>
-      </div>
-
-      <form className="space-y-3" onSubmit={handleCreateClaim}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label>Policy</Label>
-            <Select value={form.policy_id} onValueChange={(value) => setForm({ ...form, policy_id: value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select policy" />
-              </SelectTrigger>
-              <SelectContent>
-                {policies.map((policy) => (
-                  <SelectItem key={policy.id} value={policy.id}>{policy.policy_number} · {policy.worker_name}</SelectItem>
-                ))}
-              </SelectContent>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-primary" />
+            <CardTitle>Claims Management</CardTitle>
+          </div>
+          <CardDescription>Submit and manage insurance claims with fraud detection</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="space-y-4" onSubmit={handleCreateClaim}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Policy</Label>
+                <Select value={form.policy_id} onValueChange={(value) => setForm({ ...form, policy_id: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select policy" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {policies.map((policy) => (
+                      <SelectItem key={policy.id} value={policy.id}>
+                        {policy.policy_number} · {policy.worker_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
@@ -247,9 +338,22 @@ const ClaimsManagement = () => {
                     <p className="font-semibold">{claim.title}</p>
                     <p className="text-sm text-muted-foreground">{claim.claim_number} · ₹{claim.claim_amount}</p>
                   </div>
-                  <Badge variant="outline" className={claimStatusStyles[claim.status] || ""}>{claim.status}</Badge>
+                  <Badge variant="outline" className={claimStatusStyles[claim.status] || ""}>{formatClaimStatusLabel(claim.status)}</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">{claim.description}</p>
+                
+                {/* Fraud Detection component (runs analysis per claim) */}
+                <div className="mt-3">
+                  <FraudDetectionAlert claim={claim} />
+                </div>
+
+                {/* Payout UI handled by PayoutBannerEnhanced component */}
+                {claim.status === "approved" && (
+                  <div className="mt-3">
+                    <PayoutBannerEnhanced claim={claim} />
+                  </div>
+                )}
+
                 <div className="mt-3">
                   <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteClaim(claim.id)}>
                     <Trash2 className="w-4 h-4 mr-1" /> Delete
@@ -259,7 +363,9 @@ const ClaimsManagement = () => {
             ))}
           </div>
         )}
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

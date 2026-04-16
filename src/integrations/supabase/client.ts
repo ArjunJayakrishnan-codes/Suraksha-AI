@@ -5,6 +5,8 @@ let cachedSupabaseClient: ReturnType<typeof createClient> | null = null
 function getSupabaseClient() {
   if (cachedSupabaseClient) return cachedSupabaseClient
 
+  // Do not force-disable Supabase in development. Respect build-time or runtime config.
+
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || window.__APP_CONFIG__?.supabaseUrl
   const SUPABASE_PUBLISHABLE_KEY =
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||

@@ -240,3 +240,9 @@ def delete_policy(policy_id: str, owner_id: str) -> bool:
     except Exception as exc:
         raise ValueError(f"Invalid policy id: {policy_id}") from exc
     return result.deleted_count > 0
+
+
+def get_all_policies() -> List[Dict[str, Any]]:
+    """Get ALL policies across all users (admin function)."""
+    coll = _require_collection()
+    return [_serialize_policy(doc) for doc in coll.find({}).sort("created_at", -1)]

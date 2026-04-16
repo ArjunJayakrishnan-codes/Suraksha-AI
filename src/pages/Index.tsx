@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { CloudRain, Thermometer, Wind, Car } from "lucide-react";
+import { CloudRain, Thermometer, Wind, Car, Zap, BarChart3 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import StatusHeader from "@/components/StatusHeader";
 import RiskPulse from "@/components/RiskPulse";
 import PayoutBanner from "@/components/PayoutBanner";
@@ -25,7 +27,10 @@ interface RiskState {
 }
 
 const Index = () => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const navigate = useNavigate();
+  const isWorker = role === "worker";
+  const isAdmin = role === "admin";
   const [risk, setRisk] = useState<RiskState>({
     level: "warning",
     value: 72,
@@ -80,6 +85,38 @@ const Index = () => {
       <div className="container relative max-w-6xl mx-auto px-4 pb-8">
         <div className="fade-up-enter" style={{ animationDelay: "30ms" }}>
           <StatusHeader />
+        </div>
+
+        {/* Dashboard Navigation */}
+        <div className="fade-up-enter mt-3 flex items-center gap-2" style={{ animationDelay: "60ms" }}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="bg-slate-900/70 text-slate-100 border-slate-600 hover:bg-slate-800"
+            onClick={() => navigate("/")}
+          >
+            🏠 Overview
+          </Button>
+          {isWorker && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-indigo-900/60 text-indigo-100 border-indigo-400/50 hover:bg-indigo-900"
+              onClick={() => navigate("/worker")}
+            >
+              <Zap className="w-4 h-4 mr-1" /> Worker Dashboard
+            </Button>
+          )}
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-amber-900/60 text-amber-100 border-amber-400/50 hover:bg-amber-900"
+              onClick={() => navigate("/insurer")}
+            >
+              <BarChart3 className="w-4 h-4 mr-1" /> Insurer Analytics
+            </Button>
+          )}
         </div>
 
         <div className="fade-up-enter premium-surface premium-interactive mt-2 p-5" style={{ animationDelay: "90ms" }}>

@@ -86,8 +86,14 @@ const PolicyManagement = () => {
     if (includeJsonContentType) {
       headers["Content-Type"] = "application/json";
     }
+    
+    // In development, use mock token for API calls
+    if (!getSupabase()) {
+      headers.Authorization = "Bearer mock-dev-token";
+      return headers;
+    }
+    
     const supabase = getSupabase();
-    if (!supabase) return headers;
     const { data } = await supabase.auth.getSession();
     const token = data?.session?.access_token;
     if (token) {
