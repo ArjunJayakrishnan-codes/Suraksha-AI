@@ -9,7 +9,6 @@ import Auth from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import ErrorBoundary from "./ErrorBoundary.tsx";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
-import RoleRedirect from "./components/RoleRedirect.tsx";
 import InsurerDashboard from "./pages/InsurerDashboard.tsx";
 import WorkerDashboard from "./pages/WorkerDashboard.tsx";
 import { useEffect } from "react";
@@ -58,15 +57,8 @@ const App = () => {
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/signin" element={<Navigate to="/auth" replace />} />
-                {/* Home route auto-redirects to dashboard or role-specific page */}
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <RoleRedirect />
-                    </ProtectedRoute>
-                  }
-                />
+                {/* Always land on sign-in page at root */}
+                <Route path="/" element={<Navigate to="/auth" replace />} />
                 {/* Main dashboard - the existing one */}
                 <Route
                   path="/dashboard"
